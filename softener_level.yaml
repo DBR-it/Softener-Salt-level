@@ -1,0 +1,106 @@
+# ===========================================
+# ESPHome Salt Level Sensor
+# ===========================================
+# This configuration is for an ESP8266 device that:
+#  - Measures the salt level in a water softener tank using an ultrasonic sensor.
+#  - Provides a web server on port 80.
+#  - Integrates with Home Assistant.
+#  - Supports OTA firmware updates.
+#
+# Users can set their tank height (in inches) and sensor names
+# to adjust the salt level percentage calculation and customize
+# the display in Home Assistant.
+
+# -------------------------------------------------
+# Substitutions: variables that make the file easier
+# to customize by allowing changes in one place.
+# -------------------------------------------------
+substitutions:
+  device_name: "softener_level"                      # Main name for the ESPHome device
+  fallback_ssid: "Softener Fallback Hotspot"          # SSID for fallback AP
+  fallback_password: "0q5EzeuYyRh9"                 # Password for fallback AP
+  ota_password: "34eae99873d957c2716e6338422c7f45"  # OTA password
+  wifi_ssid_var: !secret wifi_ssid                   # Primary Wi-Fi SSID
+  wifi_password_var: !secret wifi_password           # Primary Wi-Fi Password
+  tank_height: "40.0"                               # Height of the salt tank in inches
+  distance_sensor_name: "Salt Level Distance"        # Name of the distance sensor
+  percentage_sensor_name: "Salt Level Percentage"    # Name of the percentage sensor
+
+esphome:
+  name: ${device_name}
+
+esp8266:
+  board: d1_mini
+
+# -------------------------------------------------
+# Logger: Enables logs from the device.
+# -------------------------------------------------
+logger:
+
+# -------------------------------------------------
+# Web Server: For debugging and local control.
+# -------------------------------------------------
+web_server:
+  port: 80
+
+# -------------------------------------------------
+# Home Assistant API: Allows integration with HA.
+# -------------------------------------------------
+api:
+
+# -------------------------------------------------
+# OTA: Over-The-Air updates with a password.
+# -------------------------------------------------
+ota:
+  - platform: esphome
+    password: "${ota_password}"
+
+# -------------------------------------------------
+# Wi-Fi Configuration: Connects the device to
+# your Wi-Fi network. Fallback hotspot included.
+# -------------------------------------------------
+wifi:
+  ssid: "${wifi_ssid_var}"
+  password: "${wifi_password_var}"
+  ap:
+    ssid: "${fallback_ssid}"
+    password: "${fallback_password}"
+
+# -------------------------------------------------
+# Restart Switch: Exposes a switch in Home Assistant
+# to remotely reboot this ESP.
+# -------------------------------------------------
+switch:
+  - platform: restart
+    name: "${device_name} Restart"
+
+# -------------------------------------------------
+# Ultrasonic Sensor: Measures distance to salt level
+# and converts to a percentage based on tank height.
+# -------------------------------------------------
+sensor:
+  - platform: ultrasonic
+    trigger_pin: D1
+    echo_pin: D2
+    name: "${distance_sensor_name}"
+    id: salt_level_distance
+    update_interval: 30s
+    unit_of_measurement: "in"
+    filters:
+      - lambda: |
+          float distance = x * 39.37; // Convert from meters to inches
+          ESP_LOGD("salt_sensor", "Converted Raw Distance: %f inches", distance);
+          return distance;
+
+  - platform: template
+    name: "${percentage_sensor_name}"
+    unit_of_measurement: "%"
+    accuracy_decimals: 2
+    update_interval: 30s
+    lambda: |
+      if (!id(salt_level_distance).has_state()) {
+        return NAN;
+      }
+      float distance = id(salt_level_distance).state;
+      float tankHeight = ${tank_height}; // User-defined tank height
+      return max(0.0, min(100.0, (100 - ((distance / tankHeight) * 100))));
