@@ -9,11 +9,11 @@ esphome:
   name: my_softener_sensor
 
 packages:
-  softener_salt_level:
+  remote_package_files:
     url: https://github.com/DBR-it/Softener-Salt-level
+    files: [softener_level.yaml]
     ref: main
-    files:
-      - softener_level.yaml
+    refresh: 1d
 ```
 
 ### How It Works
@@ -39,11 +39,11 @@ esphome:
   name: my_softener_sensor
 
 packages:
-  softener_salt_level:
+  remote_package_files:
     url: https://github.com/DBR-it/Softener-Salt-level
+    files: [softener_level.yaml]
     ref: main
-    files:
-      - softener_level.yaml
+    refresh: 1d
 
 substitutions:
   device_name: "my_custom_sensor"
